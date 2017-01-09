@@ -22,3 +22,4 @@ C:\cygwin\home\dlane\repo\gamerepo\kerbpaint\bin\Debug\kerbpaint.dll
 C:\cygwin\home\dlane\repo\gamerepo\kerbpaint\bin\Debug\kerbpaint.pdb
 C:\cygwin\home\dlane\repo\gamerepo\kerbpaint\obj\Debug\kerbpaint.dll
 C:\cygwin\home\dlane\repo\gamerepo\kerbpaint\obj\Debug\kerbpaint.pdb
+C:\cygwin\home\dlane\repo\gamerepo\kerbpaint\obj\Debug\kerbpaint.csprojResolveAssemblyReference.cache

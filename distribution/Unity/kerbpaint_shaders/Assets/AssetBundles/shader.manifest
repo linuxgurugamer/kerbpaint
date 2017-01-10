@@ -1,0 +1,29 @@
+ManifestFileVersion: 0
+CRC: 729466097
+Hashes:
+  AssetFileHash:
+    serializedVersion: 2
+    Hash: 07a661879225f269b20472a5d4dc1392
+  TypeTreeHash:
+    serializedVersion: 2
+    Hash: 3d7b65a2e1f431f53edc6b4af43c8dd3
+HashAppended: 0
+ClassTypes:
+- Class: 48
+  Script: {instanceID: 0}
+- Class: 109
+  Script: {instanceID: 0}
+Assets:
+- Assets/EmissiveSpecular.shader
+- Assets/Specular.shader
+- Assets/Emissive.shader
+- Assets/CutoffBumped.shader
+- Assets/Cutoff.shader
+- Assets/Bumped.shader
+- Assets/KerbPaint.cginc
+- Assets/AlphaSpecular.shader
+- Assets/Alpha.shader
+- Assets/Diffuse.shader
+- Assets/BumpedSpecular.shader
+- Assets/EmissiveBumpedSpecular.shader
+Dependencies: []

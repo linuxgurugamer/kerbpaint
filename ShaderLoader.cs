@@ -83,6 +83,47 @@ namespace KerbPaint.Shaders
 
         public static Shader LoadShader(string name)
         {
+            switch (name)
+            {
+                //Alpha, AlphaSpec, Bump, BumpSpec, Cutoff, CutoffBump, Diffuse, Emissive, EmissiveBumpSpec, EmissiveSpec, Spec
+                case "Alpha":
+                    name = "KerbPaint/Alpha/Translucent";
+                    break;
+                case "AlphaSpec":
+                    name = "KerbPaint/Alpha/Translucent Specular";
+                    break;
+                case "Bump":
+                    name = "KerbPaint/Bumped";
+                    break;
+                case "BumpSpec":
+                    name = "KerbPaint/Bumped Specular";
+                    break;
+                case "Cutoff":
+                    name = "KerbPaint/Alpha/Cutoff";
+                    break;
+                case "CutoffBump":
+                    name = "KerbPaint/Alpha/Cutoff Bumped";
+                    break;
+                case "Diffuse":
+                    name = "KerbPaint/Diffuse";
+                    break;
+                case "Emissive":
+                    name = "KerbPaint/Emissive/Diffuse";
+                    break;
+                case "EmissiveBumpSpec":
+                    name = "KerbPaint/Alpha/ Translucent";
+                    break;
+                case "EmissiveSpec":
+                    name = "KerbPaint/Emissive/Specular";
+                    break;
+                case "Spec":
+                    name = "KerbPaint/Specular";
+                    break;
+                default:
+                    name = "KerbPaint/Bumped";
+                    break;
+            }
+
             if (LoadedShaders.ContainsKey(name))
                 return LoadedShaders[name];
 

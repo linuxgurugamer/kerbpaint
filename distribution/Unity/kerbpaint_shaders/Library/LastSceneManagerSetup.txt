@@ -1,0 +1,4 @@
+sceneSetups:
+- path: Assets/kerbPaint_shader_scene.unity
+  isLoaded: 1
+  isActive: 1

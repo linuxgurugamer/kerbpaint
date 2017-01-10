@@ -17,9 +17,9 @@ freely, subject to the following restrictions:
 */
 using System;
 using UnityEngine;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using KerbPaint.Shaders;
 
 using ColorPair = System.Collections.Generic.KeyValuePair<UnityEngine.Color,UnityEngine.Vector4>;
 
@@ -28,75 +28,107 @@ namespace KerbPaint
 	public class ModulePaintable : PartModule
 	{
 
-		[KSPField]
-		public string Texture;
-		[KSPField]
-		public string Shader = "Diffuse";
+        #region KSPFeilds
 
-		// Some optional configs for more detailed material replacement
-		[KSPField]
-		public string Specific = "";
-		// Specific texture replacement
-		[KSPField]
-		public string Fairing = "";
-		[KSPField]
-		public string FairingName = "";
-		[KSPField]
-		public bool DeepReplace = false;
-		[KSPField]
-		public bool StretchyFix = false;
-		// Fix for stretchy tank overrides
+        [KSPField]
+        public string Texture;
+        [KSPField]
+        public string Shader = "Diffuse";
 
-		[KSPField (isPersistant = true)]
-		public Vector4 Primary = new Vector4 (0, 0, 1, 0);
-		[KSPField (isPersistant = true)]
-		public Vector4 Secondary = new Vector4 (0, 0, 1, 0);
-		[KSPField (isPersistant = true)]
-		public Vector4 Tertiary = new Vector4 (0, 0, 1, 0);
+        // Some optional configs for more detailed material replacement
+        [KSPField]
+        public string Specific = "";
+        // Specific texture replacement
+        [KSPField]
+        public string Fairing = "";
+        [KSPField]
+        public string FairingName = "";
+        [KSPField]
+        public bool DeepReplace = false;
+        [KSPField]
+        public bool StretchyFix = false;
+        // Fix for stretchy tank overrides
 
-		// Load textures from disk into dictionary as requested
-		public static Dictionary<string,Texture2D> Lookup = new Dictionary<string, Texture2D> ();
+        [KSPField(isPersistant = true)]
+        public Vector4 Primary = new Vector4(0, 0, 1, 0);
+        [KSPField(isPersistant = true)]
+        public Vector4 Secondary = new Vector4(0, 0, 1, 0);
+        [KSPField(isPersistant = true)]
+        public Vector4 Tertiary = new Vector4(0, 0, 1, 0);
 
-		public static Texture2D ProcessTexture (string TextureName)
-		{
-			if (Lookup.ContainsKey (TextureName)) // Bypass if the texture exists and has been loaded
-				return Lookup [TextureName];
+        #endregion
 
-			Texture2D tex = new Texture2D (4, 4); // Will just be a 4x4 whatever if load is missing!
+        #region Variable Declarations
 
-			// Load the texture in (Failsafely)
-			try {
-				var bytes = KSP.IO.File.ReadAllBytes<KerbPaint> (TextureName, null);
-				tex.LoadImage (bytes);
-				tex.filterMode = FilterMode.Trilinear;
-				tex.anisoLevel = 8; // Higher than standard, prevent tears
-				Debug.Log ("Loaded Texture " + TextureName);
-			} catch (Exception e) {
-				Debug.Log ("Error Loading " + TextureName);
-				Debug.LogWarning (e.ToString ());
-			}
+        public static ModulePaintable currentlyPainting;
 
-			tex.Compress (true);
-			tex.Apply ();
+        bool hasOverridden = false;
+        //private Material instanceMat;
 
-			Lookup.Add (TextureName, tex);
-			return tex;
-		}
+        private float flashTime = 0f;
+        private bool didSelect = false;
+        public bool isDirty = true;
 
-		struct Combo
-		{
-			public int A, B, C;
+        private Shader paintShader;        
 
-			public Combo (int _a = 0, int _b = 0, int _c = 0)
-			{
-				A = _a;
-				B = _b;
-				C = _c;
-			}
-		}
+        public static Rect paintWindow = new Rect(128, 128, 260, 80);
 
-		static Combo[] Samples = new[] {
-			new Combo (0, 0, 0), // Clear x3 (aka, Default)
+        static int selectedChannel = 0;
+        static bool showPatterns = false;
+        static bool menuOpen = false;
+        public static bool showAdvanced;
+
+        #endregion
+
+        #region Structures
+
+        // Load textures from disk into dictionary as requested
+        public static Dictionary<string, Texture2D> Lookup = new Dictionary<string, Texture2D>();
+
+        public static Texture2D ProcessTexture(string TextureName)
+        {
+            if (Lookup.ContainsKey(TextureName)) // Bypass if the texture exists and has been loaded
+                return Lookup[TextureName];
+
+            Texture2D tex = new Texture2D(4, 4); // Will just be a 4x4 whatever if load is missing!
+
+            // Load the texture in (Failsafely)
+            try
+            {
+                var bytes = KSP.IO.File.ReadAllBytes<KerbPaint>(TextureName, null);
+                tex.LoadImage(bytes);
+                tex.filterMode = FilterMode.Trilinear;
+                tex.anisoLevel = 8; // Higher than standard, prevent tears
+                Debug.Log("Loaded Texture " + TextureName);
+            }
+            catch (Exception e)
+            {
+                Debug.Log("Error Loading " + TextureName);
+                Debug.LogWarning(e.ToString());
+            }
+
+            tex.Compress(true);
+            tex.Apply();
+
+            Lookup.Add(TextureName, tex);
+            return tex;
+        }
+
+        struct Combo
+        {
+            public int A, B, C;
+
+            public Combo(int _a = 0, int _b = 0, int _c = 0)
+            {
+                A = _a;
+                B = _b;
+                C = _c;
+            }
+        }
+
+        static Combo[] Samples = new[]
+        {
+            new Combo (0, 0, 0), // Clear x3 (aka, Default)
 			new Combo (1, 11, 9), // Red Black White
 			new Combo (5, 9, 5), // Cyan white white
 			new Combo (7, 0, 8), // Purple clear rose
@@ -110,12 +142,16 @@ namespace KerbPaint
 			new Combo (10, 0, 2) // Grey Clear Orange
 		};
 
-		static ColorPair[] presets { 
-			get { 
-				if (_presets != null)
-					return _presets;
-				_presets = new[] {
-					new ColorPair (Color.clear, new Vector4 (0, 0, 0, 0)), // Clear, 0 
+        static Vector4 cPrimary = Vector4.zero, cSecondary = Vector4.zero, cTertiary = Vector4.zero, cGeneral = Vector4.zero;
+
+        static ColorPair[] presets
+        {
+            get
+            {
+                if (_presets != null)
+                    return _presets;
+                _presets = new[] {
+                    new ColorPair (Color.clear, new Vector4 (0, 0, 0, 0)), // Clear, 0 
 					new ColorPair (Color.red, new Vector4 (1, 0.75f, 1, 0.85f)), // Red, 1
 					new ColorPair (new Color (0.75f, 0.4f, 0), new Vector4 (0.1f, 0.75f, 1, 0.85f)), // Orange-Brown, 2
 					new ColorPair (Color.yellow, new Vector4 (0.155f, 0.75f, 1, 0.85f)), // Yellow, 3
@@ -128,35 +164,178 @@ namespace KerbPaint
 					new ColorPair (Color.grey, new Vector4 (1, -1, 0.5f, 0.95f)), // Grey, 10
 					new ColorPair (Color.black, new Vector4 (1, -1, 0.15f, 0.95f)) // Black, 11	
 				};
-				return _presets;
-			}
-		}
+                return _presets;
+            }
+        }
 
-		static ColorPair[] _presets = null;
+        static ColorPair[] _presets = null;
 
-		public override void OnStart (StartState start)
-		{
-			ProcessTexture (Texture); // Process our texture
-//			RenderingManager.AddToPostDrawQueue (1, drawGUI);
-		}
+        private Material[] ManagedMats;
 
-		private void OnGUI()
-		{
-			drawGUI ();
-		}
 
-		public static ModulePaintable currentlyPainting;
+        Texture2D _swatch;
+        Texture2D swatch
+        {
+            get
+            {
+                if (_swatch)
+                    return _swatch;
+                _swatch = new Texture2D(2, 2);
+                _swatch.SetPixels(new[] { Color.white, Color.white, Color.white, Color.white });
+                _swatch.Apply();
+                return _swatch;
+            }
+        }
 
-		bool hasOverridden = false;
-		//private Material instanceMat;
+        #endregion
 
-		private float flashTime = 0f;
-		private bool didSelect = false;
-		public bool isDirty = true;
+        #region Events
 
-		private Material[] ManagedMats;
+        public override void OnStart(StartState start)
+        {
+            ProcessTexture(Texture); // Process our texture
+            //RenderingManager.AddToPostDrawQueue (1, drawGUI);
+        }
 
-		private void SetVector (string n, Vector4 v)
+        private void OnGUI()
+        {
+            drawGUI();
+        }
+
+        void Update()
+        {
+            if (!hasOverridden)
+            {
+
+                // Get the material
+                var mat = GetComponentInChildren<MeshRenderer>().material; // Get the first material we find, hope it's right :D
+
+                //var shaderString = KSP.IO.File.ReadAllText<KerbPaint> (Shader, null);
+                //paintShader = mat.shader = new Material (shaderString).shader;/*UnityEngine.Shader.Find(Shader);*/
+                //paintShader = mat.shader = UnityEngine.Shader.Find(Shader);
+                paintShader = mat.shader = KerbPaintShaderLoader.LoadShader(Shader);
+
+                mat.SetTexture("_Mask", ProcessTexture(Texture));
+                ManagedMats = new[] { mat };
+
+                // I apologize for the messy code here, dealing with KSP loathing Linq
+
+                if (DeepReplace)
+                {
+                    var mrs = GetComponentsInChildren<Renderer>();//.Where(t=> ( t is MeshRenderer || t is SkinnedMeshRenderer));//.Select(r=>r.materials).SelectMany(m=>m); // Expand and flatten
+                    var tList = new List<Material>();
+                    foreach (Renderer r in mrs)
+                    {
+                        // Having trouble with aero parts misbehaving
+                        //if(!(r is ParticleRenderer || r is ParticleSystemRenderer)) // Refix PWings?
+                        //	continue;
+                        tList.AddRange(r.materials);
+                    }
+                    var mats = tList.ToArray();
+                    ManagedMats = mats;
+                    foreach (Material m in mats)
+                    {
+                        m.shader = mat.shader; // Copy over the shader
+                        m.SetTexture("_Mask", ProcessTexture(Texture));
+                    }
+                }
+
+                if (!String.IsNullOrEmpty(Specific))
+                {
+                    var mrs = GetComponentsInChildren<Renderer>();
+                    var tList = new List<Material>();
+                    foreach (Renderer r in mrs)
+                    {
+                        // ALL materials, fix DYJ Pwings loading
+                        /*if(!(r is MeshRenderer || r is SkinnedMeshRenderer || ))
+							continue;*/
+                        foreach (Material m in r.materials)
+                        {
+                            if (m.mainTexture.name.Contains(Specific))
+                                tList.Add(m);
+                        }
+                    }
+
+                    foreach (Material m in tList)
+                        Debug.Log(m.mainTexture.name + " Replaced");
+
+                    var mats = tList.ToArray();
+                    ManagedMats = mats;
+                    foreach (Material m in mats)
+                    {
+                        m.shader = mat.shader; // Copy over the shader
+                        m.SetTexture("_Mask", ProcessTexture(Texture));
+                    }
+                }
+
+                hasOverridden = true;
+            }
+
+            // Fix stretchy tanks!
+            if (StretchyFix && paintShader && HighLogic.LoadedSceneIsEditor)
+                foreach (Material m in ManagedMats)
+                    m.shader = paintShader; // Stretchy tanks overrides shaders, we have to trump it
+
+            // Update the paint
+            if (isDirty)
+            {
+                isDirty = false;
+                SetVector("_AWght", Primary);
+                SetVector("_BWght", Secondary);
+                SetVector("_CWght", Tertiary);
+            }
+        }
+
+        void LateUpdate()
+        {
+            // Used for flashing the paintable part
+            if (Input.GetKey(KeyCode.P)) // Highlight paintable parts with "P"
+                SetRim(0.5f, 2);
+            if (Input.GetKeyUp(KeyCode.P)) // Stop highlighting parts
+                SetRim(0, 2);
+
+            if (!didSelect)
+                return;
+
+            if (flashTime > 0)
+            {
+                flashTime -= Time.deltaTime;
+                flashTime = Mathf.Clamp01(flashTime);
+                var smth = Mathf.SmoothStep(0, 1, flashTime);
+                SetRim(smth * smth, 2);
+
+                if (flashTime <= 0)
+                    didSelect = false;
+            }
+        }
+
+        public void OnMouseOver()
+        {
+            if (Input.GetKeyUp(KeyCode.P))
+            {
+                menuOpen = this;
+                currentlyPainting = this;
+                didSelect = true;
+                flashTime = 1f;
+            }
+        }
+
+        void drawGUI()
+        {
+            if (currentlyPainting != this)
+                return;
+
+            if (menuOpen == false)
+                return;
+
+            // ID'd hashcode 'should' prevent control setting update issues? Hopefully?
+            GUI.skin = HighLogic.Skin;
+            paintWindow = GUILayout.Window(8091 + this.GetHashCode(), paintWindow, doPaintWindow, "KerbPaint", GUILayout.Width(260), GUILayout.Height(80));
+        }
+
+        #endregion
+        
+        private void SetVector (string n, Vector4 v)
 		{
 			foreach (Material m in ManagedMats)
 				m.SetVector (n, v);
@@ -169,146 +348,7 @@ namespace KerbPaint
 				m.SetFloat ("_RimFalloff", 2f);
 			}
 		}
-
-		private Shader paintShader;
-
-		void Update ()
-		{
-			if (!hasOverridden) {
-				// Get the material
-				var mat = GetComponentInChildren<MeshRenderer> ().material; // Get the first material we find, hope it's right :D
-				var shaderString = KSP.IO.File.ReadAllText<KerbPaint> (Shader, null);
-				paintShader = mat.shader = new Material (shaderString).shader;/*UnityEngine.Shader.Find(Shader);*/
-				mat.SetTexture ("_Mask", ProcessTexture (Texture));
-				ManagedMats = new[] { mat };
-
-				// I apologize for the messy code here, dealing with KSP loathing Linq
-
-				if (DeepReplace) {
-					var mrs = GetComponentsInChildren<Renderer> ();//.Where(t=> ( t is MeshRenderer || t is SkinnedMeshRenderer));//.Select(r=>r.materials).SelectMany(m=>m); // Expand and flatten
-					var tList = new List<Material> ();
-					foreach (Renderer r in mrs) {
-						// Having trouble with aero parts misbehaving
-						//if(!(r is ParticleRenderer || r is ParticleSystemRenderer)) // Refix PWings?
-						//	continue;
-						tList.AddRange (r.materials);
-					}
-					var mats = tList.ToArray ();
-					ManagedMats = mats;
-					foreach (Material m in mats) {
-						m.shader = mat.shader; // Copy over the shader
-						m.SetTexture ("_Mask", ProcessTexture (Texture));
-					}
-				}
-
-				if (!String.IsNullOrEmpty (Specific)) {
-					var mrs = GetComponentsInChildren<Renderer> ();
-					var tList = new List<Material> ();
-					foreach (Renderer r in mrs) {
-						// ALL materials, fix DYJ Pwings loading
-						/*if(!(r is MeshRenderer || r is SkinnedMeshRenderer || ))
-							continue;*/
-						foreach (Material m in r.materials) {
-							if (m.mainTexture.name.Contains (Specific))
-								tList.Add (m);
-						}
-					}
-
-					foreach (Material m in tList)
-						Debug.Log (m.mainTexture.name + " Replaced");
-
-					var mats = tList.ToArray ();
-					ManagedMats = mats;
-					foreach (Material m in mats) {
-						m.shader = mat.shader; // Copy over the shader
-						m.SetTexture ("_Mask", ProcessTexture (Texture));
-					}
-				}
-
-				hasOverridden = true;
-			}
-
-			// Fix stretchy tanks!
-			if (StretchyFix && paintShader && HighLogic.LoadedSceneIsEditor)
-				foreach (Material m in ManagedMats)
-					m.shader = paintShader; // Stretchy tanks overrides shaders, we have to trump it
-
-			// Update the paint
-			if (isDirty) {
-				isDirty = false;
-				SetVector ("_AWght", Primary);
-				SetVector ("_BWght", Secondary);
-				SetVector ("_CWght", Tertiary);
-			}
-		}
-
-		void LateUpdate ()
-		{ // Used for flashing the paintable part
-			if (Input.GetKey (KeyCode.P)) // Highlight paintable parts with "P"
-				SetRim (0.5f, 2);
-			if (Input.GetKeyUp (KeyCode.P)) // Stop highlighting parts
-				SetRim (0, 2);
-
-			if (!didSelect)
-				return;
-
-			if (flashTime > 0) {
-				flashTime -= Time.deltaTime;
-				flashTime = Mathf.Clamp01 (flashTime);
-				var smth = Mathf.SmoothStep (0, 1, flashTime);
-				SetRim (smth * smth, 2);
-
-				if (flashTime <= 0)
-					didSelect = false;
-			}
-		}
-
-		public void OnMouseOver ()
-		{
-			if (Input.GetKeyUp (KeyCode.P)) {
-				menuOpen = this;
-				currentlyPainting = this;
-				didSelect = true;
-				flashTime = 1f;
-			}
-		}
-
-
-		public static Rect paintWindow = new Rect (128, 128, 260, 80);
-
-		void drawGUI ()
-		{
-			if (currentlyPainting != this)
-				return;
-
-			if (menuOpen == false)
-				return;
-
-			// ID'd hashcode 'should' prevent control setting update issues? Hopefully?
-			GUI.skin = HighLogic.Skin;
-			paintWindow = GUILayout.Window (8091 + this.GetHashCode (), paintWindow, doPaintWindow, "KerbPaint", GUILayout.Width (260), GUILayout.Height (80));
-		}
-
-		Texture2D swatch {
-			get {
-				if (_swatch)
-					return _swatch;
-				_swatch = new Texture2D (2, 2);
-				_swatch.SetPixels (new[] { Color.white, Color.white, Color.white, Color.white });
-				_swatch.Apply ();
-				return _swatch;
-			}
-		}
-
-		Texture2D _swatch;
-
-		static Vector4 cPrimary = Vector4.zero, cSecondary = Vector4.zero, cTertiary = Vector4.zero, cGeneral = Vector4.zero;
-
-		static int selectedChannel = 0;
-		static bool showPatterns = false;
-		static bool menuOpen = false;
-		public static bool showAdvanced;
-
+                
 		void doPaintWindow (int id)
 		{
 			var shouldClear = false; // Flag for killing the window

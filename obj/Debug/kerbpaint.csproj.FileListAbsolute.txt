@@ -18,3 +18,7 @@ D:\Users\jbb\github\kerbpaint\bin\Debug\TDx.TDxInput.dll
 D:\Users\jbb\github\kerbpaint\bin\Debug\UnityEngine.xml
 D:\Users\jbb\github\kerbpaint\obj\Debug\kerbpaint.dll
 D:\Users\jbb\github\kerbpaint\obj\Debug\kerbpaint.pdb
+C:\cygwin\home\dlane\repo\gamerepo\kerbpaint\bin\Debug\kerbpaint.dll
+C:\cygwin\home\dlane\repo\gamerepo\kerbpaint\bin\Debug\kerbpaint.pdb
+C:\cygwin\home\dlane\repo\gamerepo\kerbpaint\obj\Debug\kerbpaint.dll
+C:\cygwin\home\dlane\repo\gamerepo\kerbpaint\obj\Debug\kerbpaint.pdb
